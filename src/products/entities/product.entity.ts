@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, BeforeInsert } from 'typeorm'
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  BeforeInsert,
+  OneToMany,
+} from 'typeorm'
+import { ProductImage } from './product-image.entity'
 
 @Entity()
 export class Product {
@@ -39,9 +46,21 @@ export class Product {
   @Column('text')
   gender: string
 
+  @Column('text', {
+    array: true,
+    default: [],
+  })
+  tags: string[]
+
+  @OneToMany(() => ProductImage, (productImage) => productImage.product, {
+    cascade: true,
+    eager: true,
+  }) // muchos a muchos
+  images?: ProductImage[]
+
   @BeforeInsert()
   checkSlugInsert() {
-    if (!this.slug) {
+    if (this.slug === null) {
       this.slug = this.title
     }
 
