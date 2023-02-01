@@ -72,21 +72,25 @@ export class ProductsService {
   }
 
   async findOne(term: string) {
-    let product: Product | null
+    try {
+      let product: Product | null
 
-    if (isUUID(term)) {
-      product = await this.productRepository.findOneBy({ id: term })
-    } else {
-      const queryBuilder = this.productRepository.createQueryBuilder('prod')
-      product = await queryBuilder
-        .where('UPPER(title) =:title or slug =: slug', {
-          title: term.toUpperCase(),
-          slug: term.toLowerCase(),
-        })
-        .leftJoinAndSelect('prod.images', 'prodImages')
-        .getOne()
+      if (isUUID(term)) {
+        product = await this.productRepository.findOneBy({ id: term })
+      } else {
+        const queryBuilder = this.productRepository.createQueryBuilder('prod')
+        product = await queryBuilder
+          .where('UPPER(title) =:title or slug =: slug', {
+            title: term.toUpperCase(),
+            slug: term.toLowerCase(),
+          })
+          .leftJoinAndSelect('prod.images', 'prodImages')
+          .getOne()
+      }
+      return product
+    } catch (error) {
+      console.log(error)
     }
-    return product
   }
 
   async findOnePlain(term: string) {
@@ -108,17 +112,50 @@ export class ProductsService {
     if (!product)
       throw new NotFoundException(`Product with id: ${id} not found`)
 
+    // transsacciones
     const queryRunner = this.dataSource.createQueryRunner()
 
+    await queryRunner.connect()
+    await queryRunner.startTransaction()
+
     try {
-      await this.productRepository.save(product)
-      return product
+      if (images) {
+        await queryRunner.manager.delete(ProductImage, {
+          product: { id },
+        })
+
+        product.images = images.map((image) =>
+          this.productImageRepository.create({ url: image }),
+        )
+      }
+
+      await queryRunner.manager.save(product)
+
+      // aplicar cambios si todo esta ok
+      await queryRunner.commitTransaction()
+      await queryRunner.release()
+
+      // await this.productRepository.save(product)
+      return await this.findOnePlain(id)
     } catch (error) {
+      await queryRunner.rollbackTransaction()
+      await queryRunner.release()
       this.handleDBException(error)
     }
   }
 
-  remove(id: string) {
-    return `This action removes a #${id} product`
+  async remove(id: string) {
+    const product = await this.findOne(id)
+    if (product) await this.productRepository.remove(product)
+  }
+
+  async deleteAllProducts() {
+    const query = this.productRepository.createQueryBuilder('product')
+
+    try {
+      return await query.delete().where({}).execute()
+    } catch (error) {
+      this.handleDBException(error)
+    }
   }
 }
