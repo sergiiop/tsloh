@@ -24,7 +24,7 @@ export class FilesController {
 
   @Get('product/:imageName')
   findProductImage(
-    @Res() res: Response,
+    @Res() res:Response,
     @Param('imageName') imageName: string,
   ) {
     const path = this.filesService.getStaticProductImage(imageName)
@@ -46,11 +46,9 @@ export class FilesController {
     if (!file) {
       throw new BadRequestException('Make sure that file is an image')
     }
-    // const secureUrl = `${file.filename}`
-    const hostApi = this.configService.get('HOST_API') || 'localhost'
 
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    const secureUrl = `${hostApi}/files/product/${file.filename}`
+    const secureUrl = `${this.configService.get('HOST_API')}/files/product/${file.filename}`
     return {
       secureUrl,
     }
