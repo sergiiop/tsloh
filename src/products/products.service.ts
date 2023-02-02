@@ -146,7 +146,11 @@ export class ProductsService {
 
   async remove(id: string) {
     const product = await this.findOne(id)
-    if (product) await this.productRepository.remove(product)
+    try {
+      if (product) await this.productRepository.remove(product)
+    } catch (error) {
+      this.handleDBException(error)
+    }
   }
 
   async deleteAllProducts() {
